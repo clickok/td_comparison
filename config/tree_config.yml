@@ -1,0 +1,18 @@
+env :
+ name : Treelike
+ branches : 2
+ layers : 4
+
+phi : 
+ name : IntToVector
+ n : 17
+ k : 7
+
+policy :
+ name : RandomAction
+ action_set : [1, 2]
+
+run:
+ step_limit : 
+ episode_limit : 1000
+

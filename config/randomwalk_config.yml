@@ -1,0 +1,17 @@
+env :
+ name : RandomWalk
+ num_states : 17
+
+phi : 
+ name : IntToVector
+ n : 17
+ k : 3
+
+policy :
+ name : RandomAction
+ action_set : [-1, 1]
+
+run:
+ step_limit : 
+ episode_limit : 1000
+

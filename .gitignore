@@ -1,3 +1,9 @@
+# Individual files to ignore
+implementation_notes.md
+
+# OSX files
+*.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
