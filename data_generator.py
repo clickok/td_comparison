@@ -148,29 +148,3 @@ def generate_data(env, phi, policy, episode_limit=None, step_limit=None):
 if __name__ == "__main__":
 	gen_from_config()
 
-# Folded into code allowing runs to be executed from config file
-# if __name__ == "__main__" and False:
-# 	import features
-
-# 	num_states = 7 
-# 	episode_limit = 100
-
-# 	E 	= environment.RandomWalk(num_states)
-# 	Fa 	= features.IntToVector(num_states)
-# 	Pi 	= lambda x : random.choice([-1, 1])
-
-# 	ret = generate_data(E, Fa, Pi, episode_limit)
-
-# 	obs_lst, fvec_lst, act_lst, reward_lst = ret 
-
-# 	epstring 	= "{}eps".format(episode_limit)
-# 	envstring 	= E.info_string()
-
-# 	# Check that the length of all lists are equal
-# 	assert(all([len(i) == len(ret[0]) for i in ret]))
-
-# 	with open(epstring + "_" + envstring + ".csv", "w") as out_file:
-# 		writer = csv.writer(out_file, delimiter="\t",)
-# 		writer.writerow(["obs", "fvec", "action", "reward"])
-# 		writer.writerows(zip(*ret))
-		

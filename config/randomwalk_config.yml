@@ -13,5 +13,5 @@ policy :
 
 run:
  step_limit : 
- episode_limit : 1000
+ episode_limit : 10
 

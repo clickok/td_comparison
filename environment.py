@@ -61,6 +61,14 @@ class Environment():
 	def valid_actions(self, value):
 		self._valid_actions = value
 
+	@property
+	def valid_states(self):
+		return self._valid_states
+	
+	@valid_states.setter
+	def valid_states(self, value):
+		self._valid_states = value
+
 	def valid_transitions(self, state):
 		""" 
 		Compute all possible transitions from given state for the environment. 
@@ -80,6 +88,13 @@ class Environment():
 		Print the rewards for all possible state-action-state transitions. 
 		"""
 		pass 
+
+	def true_state_values(self, gamma=1):
+		""" 
+		Return a dictionary of the form {obs:value, ...} reflecting the true 
+		values of each state in the environment, subject to discounting.
+		"""
+		raise NotImplementedError
 
 	def info_string(self):
 		""" Return short string containing information about the environment"""
@@ -104,7 +119,8 @@ class RandomWalk(Environment):
 		#super().__init__(self, num_states)
 		self.num_states = num_states
 		self._state 	= num_states // 2
-
+		self._valid_states = [i for i in range(1, num_states-1)]
+		self._valid_states.append(-1)
 
 	def info_string(self):
 		return "{}-{}-states".format(self._name, self.num_states) 
@@ -154,6 +170,16 @@ class RandomWalk(Environment):
 		else:
 			self._state = new_state
 
+	@property
+	def valid_states(self):
+		return self._valid_states
+
+	def true_state_values(self):
+		# TODO: reimplement as matrices to handle `gamma` parameter
+		tmp 	= self.num_states-1
+		val_dct = {i:i/tmp for i in range(1, tmp)}
+		val_dct[-1] = 0
+		return val_dct
 
 class Treelike(Environment):
 	"""

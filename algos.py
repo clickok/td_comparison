@@ -64,6 +64,11 @@ class TD(Algorithm):
 	""" Temporal difference (lambda) algorithm. """
 	_name = "TD-Lambda"
 	def __init__(self, n=None, alpha=None, gamma=None, lmbda=None, *args, **kwargs):		
+		if 'print_debug' in kwargs:
+			self._dbg = True
+		else:
+			self._dbg = False
+
 		# Set up variables
 		self.alpha 	= alpha
 		self.gamma 	= gamma
@@ -77,19 +82,19 @@ class TD(Algorithm):
 
 	def _update(self, fvec, act, reward, fvec_p, alpha, gamma, lmbda):
 		# TODO: add importance sampling
-		# print(fvec)
-		# print(self.z)
-		# print(self.theta)
-		# print(fvec.shape)
-		# print(act)
-		# print(reward)
-		# print(fvec_p.shape)
-		# print(alpha)
-		# print(gamma)
-		# print(lmbda)
+		if self._dbg:
+			print('alpha=', alpha)
+			print('gamma=', gamma)
+			print('lmbda=', lmbda)
+			print('z=', self.z)
 
 		delta 	= reward + np.dot(fvec_p * gamma - fvec, self.theta)
-		self.z 	= (lmbda * self.z) + fvec
+		# Reset in terminal state
+		# TODO: Run through this on paper
+		if all(fvec == 0):
+			self.z = np.zeros_like(fvec)
+		else:
+			self.z 	= (lmbda * self.z) + fvec
 		self.theta += alpha * delta * self.z 
 
 		return delta 
@@ -108,10 +113,15 @@ class TOETD(Algorithm):
 	""" True-Online Emphatic TD-Lambda Algorithm. """
 	#TODO: Add in importance sampling
 	_name = "TOETD"
-	def __init__(self, n=None, alpha=None, gamma=None, lmbda=None, I=None):
+	def __init__(self, n=None, alpha=None, gamma=None, lmbda=None, I=None, *args, **kwargs):
 		# Initialize the parameters
 		self.t 			= 0
 		self.n 			= n 
+
+		if 'print_debug' in kwargs:
+			self._dbg = True
+		else:
+			self._dbg = False
 
 		# Set up variables
 		self.alpha 		= alpha
@@ -128,24 +138,25 @@ class TOETD(Algorithm):
 		self.oldI 		= self.I(self)
 
 	def _update(self, fvec, act, reward, fvec_p, alpha, gm, gm_p, lm, lm_p, I_p):
-		# print("\n", self.t)
-		# print(fvec)
-		# print(act)
-		# print(reward)
-		# print(fvec_p)
-		# print(alpha)
-		# print(gm)
-		# print(gm_p)
-		# print(lm)
-		# print(lm_p)
-		# print(I_p)
-		# print(self.z)
-		# print(self.M)
-		# print(self.H)
+		if self._dbg:
+			print("alpha=", alpha)
+			print("gamma=", gm)
+			print("gamma_p=", gm_p)
+			print("lambda=", lm)
+			print("lambda_p=", lm_p)
+			print("I_p=", I_p)
+			print("z=", np.array_str(self.z, precision=3, suppress_small=True))
+			print("M=", self.M)
+			print("H=", self.H)
 
 
 		delta 	= reward + np.dot(self.theta, gm_p*fvec_p - fvec)
-		self.z 	= gm*lm*self.z + alpha*self.M*(1 - gm*lm*np.dot(self.z, fvec))*fvec 
+		# Reset in terminal state
+		# TODO: Run through this on paper
+		if all(fvec == 0):
+			self.z = np.zeros_like(fvec)
+		else:
+			self.z 	= gm*lm*self.z + alpha*self.M*(1 - gm*lm*np.dot(self.z, fvec))*fvec 
 		theta  	= self.theta + delta*self.z + np.dot(self.theta - self.old_theta, fvec) * (self.z - alpha*self.M*fvec) 
 		self.H 	= gm_p*(self.H + self.oldI)
 		self.M 	= I_p + (1 - lm_p)*self.H  
@@ -171,7 +182,12 @@ class TOETD(Algorithm):
 
 class EmphaticLSTD(Algorithm):
 	_name = "EmphaticLSTD"
-	def __init__(self, n=None, gamma=None, lmbda=None, interest=None, epsilon=0):
+	def __init__(self, n=None, gamma=None, lmbda=None, I=None, epsilon=0, **kwargs):
+		if 'print_debug' in kwargs:
+			self._dbg = True
+		else:
+			self._dbg = False
+		
 		# Initialize the parameters
 		self.t 			= 0
 		self.n 			= n 
@@ -179,7 +195,7 @@ class EmphaticLSTD(Algorithm):
 		# Set up variables
 		self.gamma 		= gamma
 		self.lmbda 		= lmbda 
-		self.I 			= interest
+		self.I 			= I
 
 		# Initialize data structures
 		self.z 			= np.zeros(n)
@@ -211,7 +227,12 @@ class EmphaticLSTD(Algorithm):
 		# print(self.H)
 
 		# TODO: ensure this is correct
-		self.z 	= gm*lm*self.z + self.M*(1 - gm*lm*np.dot(self.z, fvec))*fvec 
+		# Reset in terminal state
+		# TODO: Run through this on paper
+		if all(fvec == 0):
+			self.z = np.zeros_like(fvec)
+		else:
+			self.z 	= gm*lm*self.z + self.M*(1 - gm*lm*np.dot(self.z, fvec))*fvec 
 		self.A += np.outer(self.z, (fvec - gm*fvec_p))
 		self.b += self.z * reward 	
 
@@ -251,7 +272,11 @@ class LSTD(Algorithm):
 		matrix to the identity matrix multiplied by `epsilon`.
 	"""
 	_name = "LSTD-Lambda"
-	def __init__(self, n=None, gamma=None, lmbda=None, epsilon=0):
+	def __init__(self, n=None, gamma=None, lmbda=None, epsilon=0, *args, **kwargs):
+		if 'print_debug' in kwargs:
+			self._dbg = True
+		else:
+			self._dbg = False
 
 		# Store the supplied parameters
 		self.n 			= n 
@@ -272,7 +297,12 @@ class LSTD(Algorithm):
 
 	def _update(self, fvec, act, reward, fvec_p, gamma, lmbda):
 		# TODO: Consider adding stepsize to ensure convergence?
-		self.z 	= gamma * lmbda * self.z + fvec
+		# Reset in terminal state
+		# TODO: Run through this on paper
+		if all(fvec == 0):
+			self.z = np.zeros_like(fvec)
+		else:
+			self.z 	= gamma * lmbda * self.z + fvec
 		self.A += np.outer(self.z, (fvec - gamma*fvec_p))
 		self.b += self.z * reward 
 
@@ -286,32 +316,11 @@ class LSTD(Algorithm):
 
 
 
-def convert(obs, fvec, act, reward):
-	"""A simple conversion function for dealing with CSV data. """
-	obs 	= int(obs)
-
-	fvec 	= fvec.strip("[]")
-	fvec 	= np.fromstring(fvec, sep=" ")
-	fvec 	= fvec.astype(np.int)
-
-	act 	= int(act)
-
-	reward 	= float(reward)
-	
-	ret 	= obs, fvec, act, reward 
-	return ret 
-
-# REMOVE
-V_star 		= [i/17 for i in range(17)]
-V_star[0]  	= 0
-V_star[-1] 	= 0
-
 if __name__ == "__main__" and False:
 	print("TOE_LSTD")
 	import csv 
 	import sys
  
-
 	with open(sys.argv[1], "r") as f:
 		reader 	= csv.reader(f, delimiter="\n")
 		next(reader)
@@ -421,7 +430,7 @@ if __name__ == "__main__" and False:
 # REMOVE
 lmbda_max = 0.9
 
-if __name__ == "__main__" and True:
+if __name__ == "__main__" and False:
 	print("TOE_LSTD (Graphing)")
 	import csv 
 	import sys
@@ -462,7 +471,7 @@ if __name__ == "__main__" and True:
 
 
 
-if __name__ == "__main__" and True:
+if __name__ == "__main__" and False:
 	print("LSTD (Graphing)")
 	import csv 
 	import sys
@@ -500,7 +509,7 @@ if __name__ == "__main__" and True:
 	import matplotlib.pyplot as plt 
 	plt.plot(mse_lst)
 
-if __name__ == "__main__" and True:
+if __name__ == "__main__" and False:
 	print("TOETD (Graphing)")
 	import csv 
 	import sys

@@ -7,13 +7,13 @@ Lambda = 1 - (1/2)^t, t=0, 1, 2, ..., 10
 Produce plots of learning curve 
 """
 
-import click
-import csv
 import inspect
+import matplotlib as mpl
 import matplotlib.pyplot as plt 
 import numpy as np 
 import os 
 import sys 
+import yaml
 
 # Import parent modules
 __currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -46,8 +46,6 @@ def run_td_experiment(data, algo_params):
 
 	Returns
 	-------
-	delta_lst : list of float 
-
 	theta_lst : list of numpy.ndarray
 	"""
 
@@ -72,12 +70,9 @@ def run_td_experiment(data, algo_params):
 
 		# Get the theta values at the timestep
 		theta = algo.theta.copy()
-
-		# Record the information
-		delta_lst.append(delta)
 		theta_lst.append(theta)
 
-	return delta_lst, theta_lst
+	return theta_lst
 
 def approx_err_for_weights(theta_lst, fvec_lst, true_theta):
 	""" 
@@ -132,217 +127,62 @@ def approx_value_err(theta_lst, obs_lst, fvec_dct, value_dct):
 	return err_lst
 
 
-# # Plot per-episode, averaging over all episodes
-# if __name__ == "__main__" and True:
-# 	# data_sources = helper.gen_find('./data/', '1000eps_RandomWalk-17-states_RandomBinomial-n-7-k-3_RandomAction_*.csv')
-# 	data_sources = helper.gen_find('./data/', '1000eps_RandomWalk-17-states_IntToVector-n-17_RandomAction_*.csv')
 
+if __name__ == "__main__":
+	data_dir 	 = "../data/randomwalk_tabular"
+	data_pattern = "*.yml"
+	data_sources = list(helper.gen_find(os.path.abspath(data_dir), data_pattern))
 
-# 	lm_values = [1 - (1/2)**i for i in range(0, 11)]
-	
-# 	lm_values = [0] # REMOVE
-
-# 	for data_path in data_sources:
-# 		print("Running experiment on file:", data_path)
-
-# 		# Get list of observed feature vectors for this dataset
-# 		data = helper.load_data(data_path)
-# 		fvec_lst = helper.get_run_features(data)
-# 		fmapping = helper.get_run_feature_mapping(data)
-# 		num_episodes = len([x[0] for x in data if x[0] == -1])
-
-# 		print('Number of episodes:', num_episodes)
-
-# 		# Iterate over the various lambda values for the experiment
-# 		for lm in lm_values:
-# 			print("Using lambda=", lm)
-
-# 			# Set up the parameters for the experiment
-# 			num_features = len(data[0][1])
-# 			lm_param = create_parameter('Constant', lm)
-
-# 			# algo_params = \
-# 			# {
-# 			# 	'n' 	: num_features,
-# 			# 	'alpha' : create_parameter('Constant', 0.1/num_features),
-# 			# 	'gamma' : create_parameter('Constant', 1),
-# 			# 	'lmbda': create_parameter('Constant', lm)
-# 			# }
-
-# 			algo_params = \
-# 			{
-# 				'n' 	: num_features,
-# 				'alpha' : create_parameter('Constant', 0.1/num_features),
-# 				'gamma' : create_parameter('Constant', 1),
-# 				'lmbda': create_parameter('Constant', lm)
-# 			}
-
-# 			# Run the experiment and get the data of interest
-# 			ret = run_td_experiment(data_path, algo_params)
-# 			delta_lst = ret[0]
-# 			theta_lst = ret[1]
-
-# 			# Get theta at end of each episode
-# 			ep_end_theta_lst = [x for i, x in enumerate(theta_lst) if data[i][0]==-1]
-
-# 			# print(theta_lst[-1])
-# 			# for k, v in fmapping.items():
-# 			# 	print(k, np.dot(theta_lst[-1], v))
-# 			err_lst   = approx_err_for_weights(ep_end_theta_lst, fvec_lst, theta_lst[-1])
-
-# 			###################################################################
-# 			# Plot a graph
-# 			fig, ax = plt.subplots()
-# 			ax.plot(err_lst)
-
-# 			fig.gca().set_position((0.1, 0.3, 0.8, 0.6))
-# 			ax.set_xlabel("Episode")
-# 			ax.set_ylabel("MSE")
-# 			plt.show()
-# 		print()
-
-
-
-# Plot per-episode
-if __name__ == "__main__" and True:
-	# data_sources = helper.gen_find('./data/', '1000eps_RandomWalk-17-states_RandomBinomial-n-7-k-3_RandomAction_*.csv')
-	
-	data_dir = "../data/"
-	run_dir = "1000eps_RandomWalk-17-states_IntToVector-n-17"
-	data_sources = helper.gen_find(os.path.join(data_dir, run_dir), "*.csv")
-
-	lm_values = [1 - (1/2)**i for i in range(0, 11)]
-	lm_values = [0] # REMOVE
+	lm_values 	 = [1 - (1/2)**i for i in range(2)] + [1]
+	# lm_values = [1 - (1/2)**i for i in range(0, 11)] + [1]
 
 	for data_path in data_sources:
-		print("Running experiment on file:", data_path)
+		print(data_path)
+		# Load the data
+		data = yaml.load(open(data_path, "r"))
+		step_lst = data['steps']
+		valid_states = data['valid_states']
+		true_values = data['state_values']
+		expected_active = data['expected_active_features']
+		num_features = len(step_lst[0][1]) 
 
-		# Get list of observed feature vectors for this dataset
-		data = helper.load_data(data_path)
-		
-		#REMOVE######################
-		#data = data + data + data
-		#############################
-		fvec_lst = helper.get_run_features(data)
-		fmapping = helper.get_run_feature_mapping(data)
-		num_features = len(data[0][1])
+		obs_lst  = [x[0] for x in step_lst]
+		obs_set  = helper.get_run_observations(step_lst)		
+		obs_map  = helper.get_run_feature_mapping(step_lst)
 
-		# Iterate over the various lambda values for the experiment
+		print("Number of steps in data:", len(step_lst))
+		print("Number of episodes in data:", len([x for x in obs_lst if x == -1]))
+
+
 		for lm in lm_values:
 			print("Using lambda=", lm)
-
-			gamma_val = 1
 			algo_params = \
 			{
 				'n' 	: num_features,
-				'alpha' : create_parameter('Constant', 0.1/num_features),
-				'gamma' : create_parameter('Constant', gamma_val),
-				'lmbda': create_parameter('Constant', lm),
-				'I': create_parameter('Heaviside', 1, 1)
-			}
-
-			# Run the experiment and get the data of interest
-			ret = run_td_experiment(data, algo_params)
-			delta_lst = ret[0]
-			theta_lst = ret[1]
-
-			# Determine "optimal" weights
-			avg_ret   = first_visit_mc(data, gamma_val)
-			# Determine Phi matrix
-			fvec_mat 	= np.array([k for k in avg_ret])
-			ret_mat 	= np.array([avg_ret[k] for k in avg_ret])
-			# Use least squares regression to determine what weights should look like
-			v_star, res, rank, singular = np.linalg.lstsq(fvec_mat, ret_mat)
-
-			print("Phi Matrix")
-			print(fvec_mat)
-			print("Average Return Vector")
-			print(ret_mat)
-			print("Calculated 'V*'")
-			print(v_star)
-
-			# Get theta at end of each episode
-			ep_end_theta_lst = [x for i, x in enumerate(theta_lst) if data[i][0]==-1]
-
-			# print(theta_lst[-1])
-			# for k, v in fmapping.items():
-			# 	print(k, np.dot(theta_lst[-1], v))
-			err_lst   = approx_err_for_weights(ep_end_theta_lst, fvec_lst, v_star)
-
-			###################################################################
-			# Plot a graph
-			fig, ax = plt.subplots()
-			ax.plot(err_lst)
-
-			fig.gca().set_position((0.1, 0.3, 0.8, 0.6))
-			ax.set_xlabel("Episode")
-			ax.set_ylabel("MSE")
-			plt.show()
-		print()
-
-
-# Plot per-timestep
-if __name__ == "__main__" and False:
-	# data_sources = helper.gen_find('./data/', '1000eps_RandomWalk-17-states_RandomBinomial-n-7-k-3_RandomAction_*.csv')
-	data_sources = helper.gen_find('./data/1000eps_RandomWalk-17-states_IntToVector-n-17', '1000eps_RandomWalk-17-states_IntToVector-n-17_RandomAction_*.csv')
-
-
-	lm_values = [1 - (1/2)**i for i in range(0, 11)]
-	
-	lm_values = [0] # REMOVE
-
-	for data_path in data_sources:
-		print("Running experiment on file:", data_path)
-
-		# Get list of observed feature vectors for this dataset
-		data = helper.load_data(data_path)
-		fvec_lst = helper.get_run_features(data)
-		fmapping = helper.get_run_feature_mapping(data)
-
-		# Iterate over the various lambda values for the experiment
-		for lm in lm_values:
-			print("Using lambda=", lm)
-
-			# Set up the parameters for the experiment
-			num_features = len(data[0][1])
-			lm_param = create_parameter('Constant', lm)
-
-			# algo_params = \
-			# {
-			# 	'n' 	: num_features,
-			# 	'alpha' : create_parameter('Constant', 0.1/num_features),
-			# 	'gamma' : create_parameter('Constant', 1),
-			# 	'lmbda': create_parameter('Constant', lm)
-			# }
-
-			algo_params = \
-			{
-				'n' 	: num_features,
-				'alpha' : create_parameter('Constant', 0.1/num_features),
+				'alpha' : create_parameter('Constant', 0.1/expected_active),
 				'gamma' : create_parameter('Constant', 1),
-				'lmbda': create_parameter('Constant', lm)
+				'lmbda': create_parameter('Constant', lm),
 			}
 
-			# Run the experiment and get the data of interest
-			ret = run_td_experiment(data_path, algo_params)
-			delta_lst = ret[0]
-			theta_lst = ret[1]
+			A = algos.TD(**algo_params)
 
-			# print(theta_lst[-1])
-			# for k, v in fmapping.items():
-			# 	print(k, np.dot(theta_lst[-1], v))
-			err_lst   = approx_err_for_weights(theta_lst, fvec_lst, theta_lst[-1])
+			# Store weights during run
+			theta_lst = []
+			theta_lst.append(A.theta)
 
-			###################################################################
-			# Plot a graph
-			fig, ax = plt.subplots()
-			ax.plot(err_lst)
+			for i, x in enumerate(step_lst[:-1]):
+				# Unpack the run data
+				obs, fvec, act, reward 	= x
+				fvec 					= np.array(fvec)
+				fvec_p 					= np.array(step_lst[i+1][1])
 
-			fig.gca().set_position((0.1, 0.3, 0.8, 0.6))
-			ax.set_xlabel("Timestep")
-			ax.set_ylabel("MSE")
-			plt.show()
-		print()
+				# Perform an update of the algorithm
+				delta = A.update(fvec, act, reward, fvec_p)
+				theta = A.theta.copy()
 
-			
+				theta_lst.append(theta)
+
+
+
+
 
