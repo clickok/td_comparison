@@ -3,9 +3,9 @@ env :
  num_states : 17
 
 phi : 
- name : IntToVector
- n : 17
- k : 3
+ name : RandomBinomial
+ n : 10
+ k : 4
 
 policy :
  name : RandomAction
@@ -13,5 +13,5 @@ policy :
 
 run:
  step_limit : 
- episode_limit : 10
+ episode_limit : 100
 

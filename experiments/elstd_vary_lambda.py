@@ -1,6 +1,6 @@
 #!python3
 """
-Code for running TD with varying lambda values, chosen from geometric interval.
+Code for running elstd with varying lambda values, chosen from geometric interval.
 
 Lambda = 1 - (1/2)^t, t=0, 1, 2, ..., 10
 
@@ -43,13 +43,13 @@ def create_parameter(param_name, *args, **kwargs):
 if __name__ == "__main__":
 	""" 
 	Perform runs over episodes in a data directory for varying lambda values,
-	using the TD-lambda algorithm. 
+	using the elstd algorithm. 
 	
 	Average the MSE error at the end of each episode, and plot MSE vs episode 
 	number. 
 	"""
-	# data_dir 	 = "./data/randomwalk_randombinomial/"
-	data_dir 	 = './data/randomwalk_tabular'
+	data_dir 	 = "./data/randomwalk_randombinomial/"
+	# data_dir 	 = './data/randomwalk_tabular'
 	data_pattern = "*.yml"
 	data_sources = list(helper.gen_find(os.path.abspath(data_dir), data_pattern))
 
@@ -81,7 +81,6 @@ if __name__ == "__main__":
 		print("Number of steps in data:", len(step_lst))
 		print("Number of episodes in data:", len([x for x in obs_lst if x == -1]))
 		print("Expected number of active features:", expected_active)
-		print("Using alpha=", alpha0/expected_active)
 
 
 		for lm in lm_values:
@@ -89,12 +88,13 @@ if __name__ == "__main__":
 			algo_params = \
 			{
 				'n' 	: num_features,
-				'alpha' : create_parameter('Constant', alpha0/expected_active),
 				'gamma' : create_parameter('Constant', 1),
 				'lmbda' : create_parameter('Constant', lm),
+				'I'		: create_parameter('Heaviside', 1, 1),
+				'epsilon' : 1e-6
 			}
 
-			A = algos.TD(**algo_params)
+			A = algos.EmphaticLSTD(**algo_params)
 
 			# Store weights during run
 			mse_lst   = []
@@ -139,10 +139,6 @@ if __name__ == "__main__":
 	plt.legend()
 
 	dir_name  = os.path.basename(data_dir.strip('/')) 
-	save_name = "td_vary_lambda" + dir_name + '.png'
+	save_name = "elstd_vary_lambda" + dir_name + '.png'
 	save_path = os.path.join(graph_dir, save_name)
 	plt.savefig(save_path)
-
-
-
-

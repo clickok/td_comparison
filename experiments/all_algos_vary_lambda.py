@@ -1,45 +1,3 @@
-#!python3
-"""
-Code for running TD with varying lambda values, chosen from geometric interval.
-
-Lambda = 1 - (1/2)^t, t=0, 1, 2, ..., 10
-
-Produce plots of learning curve 
-"""
-
-import inspect
-import matplotlib as mpl
-import matplotlib.pyplot as plt 
-import numpy as np 
-import os 
-import sys 
-import yaml
-
-# Import parent modules
-__currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-__parentdir = os.path.dirname(__currentdir)
-sys.path.insert(0,__parentdir) 
-
-import algos
-import parameters
-from mc_evaluation import first_visit_mc
-
-# Import generic experiment running code
-import helper 
-import run_algo 
-
-def create_parameter(param_name, *args, **kwargs):
-	"""
-	Given a name and the values needed to specify a parameter, create a 
-	parameter object.
-	"""
-
-	param_class = getattr(parameters, param_name)
-	param 		= param_class(*args, **kwargs)
-
-	return param 
-
-
 if __name__ == "__main__":
 	""" 
 	Perform runs over episodes in a data directory for varying lambda values,
@@ -48,20 +6,16 @@ if __name__ == "__main__":
 	Average the MSE error at the end of each episode, and plot MSE vs episode 
 	number. 
 	"""
-	# data_dir 	 = "./data/randomwalk_randombinomial/"
-	data_dir 	 = './data/randomwalk_tabular'
+	data_dir 	 = "./data/randomwalk_tabular/"
 	data_pattern = "*.yml"
 	data_sources = list(helper.gen_find(os.path.abspath(data_dir), data_pattern))
 
 	graph_dir 	 = os.path.join(__parentdir, 'graphs')
 
-	# Specify parameters
-	alpha0 = 0.1
-
 	# lm_values 	 = [1 - (1/2)**i for i in range(2)]
 	# lm_values = [1 - (1/2)**i for i in range(0, 11)] + [1]
 	lm_values = [0, 0.25, 0.5, 0.75, 1]
-	lm_dct 		 = {lm:[] for lm in lm_values}
+	algo_lm_dct	 = {lm:[] for lm in lm_values}
 
 	for data_path in data_sources:
 		print(data_path)
@@ -81,7 +35,6 @@ if __name__ == "__main__":
 		print("Number of steps in data:", len(step_lst))
 		print("Number of episodes in data:", len([x for x in obs_lst if x == -1]))
 		print("Expected number of active features:", expected_active)
-		print("Using alpha=", alpha0/expected_active)
 
 
 		for lm in lm_values:
@@ -89,9 +42,9 @@ if __name__ == "__main__":
 			algo_params = \
 			{
 				'n' 	: num_features,
-				'alpha' : create_parameter('Constant', alpha0/expected_active),
+				'alpha' : create_parameter('Constant', 0.1/expected_active),
 				'gamma' : create_parameter('Constant', 1),
-				'lmbda' : create_parameter('Constant', lm),
+				'lmbda': create_parameter('Constant', lm),
 			}
 
 			A = algos.TD(**algo_params)
@@ -118,7 +71,6 @@ if __name__ == "__main__":
 					mse 	   = np.mean(np.array(approx_err)**2) 	
 					mse_lst.append(mse)
 
-			print("MSE:", np.mean(mse_lst))
 			lm_dct[lm].append(mse_lst)
 
 	# Average the errors at the end of each episode for each value of lambda
@@ -129,20 +81,16 @@ if __name__ == "__main__":
 		lm_err_vals = np.array(v)
 		ydata = np.mean(lm_err_vals, axis=0)
 		err_max  = max(np.max(ydata), err_max)
-		print("Largest error for lambda=", k, ":", np.max(ydata))
 		plt.plot(xdata, ydata, label="lambda={}".format(k))
 
 	print("Largest error value seen:", err_max)
 	plt.xlabel("Episode")
 	plt.ylabel("MSE")
-	plt.ylim([0, min(1, err_max)])
+	plt.ylim([0, min(2, err_max)])
 	plt.legend()
+	plt.show()
 
 	dir_name  = os.path.basename(data_dir.strip('/')) 
 	save_name = "td_vary_lambda" + dir_name + '.png'
 	save_path = os.path.join(graph_dir, save_name)
 	plt.savefig(save_path)
-
-
-
-

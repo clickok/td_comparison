@@ -1,6 +1,6 @@
 #!python3
 """
-Code for running TD with varying lambda values, chosen from geometric interval.
+Code for running elstd with varying lambda values, chosen from geometric interval.
 
 Lambda = 1 - (1/2)^t, t=0, 1, 2, ..., 10
 
@@ -43,7 +43,7 @@ def create_parameter(param_name, *args, **kwargs):
 if __name__ == "__main__":
 	""" 
 	Perform runs over episodes in a data directory for varying lambda values,
-	using the TD-lambda algorithm. 
+	using the elstd algorithm. 
 	
 	Average the MSE error at the end of each episode, and plot MSE vs episode 
 	number. 
@@ -61,7 +61,8 @@ if __name__ == "__main__":
 	# lm_values 	 = [1 - (1/2)**i for i in range(2)]
 	# lm_values = [1 - (1/2)**i for i in range(0, 11)] + [1]
 	lm_values = [0, 0.25, 0.5, 0.75, 1]
-	lm_dct 		 = {lm:[] for lm in lm_values}
+	emph_lm_dct  = {lm:[] for lm in lm_values}
+	plain_lm_dct  = {lm:[] for lm in lm_values}
 
 	for data_path in data_sources:
 		print(data_path)
@@ -81,68 +82,94 @@ if __name__ == "__main__":
 		print("Number of steps in data:", len(step_lst))
 		print("Number of episodes in data:", len([x for x in obs_lst if x == -1]))
 		print("Expected number of active features:", expected_active)
-		print("Using alpha=", alpha0/expected_active)
 
 
 		for lm in lm_values:
 			print("Using lambda=", lm)
-			algo_params = \
+			plain_lstd_algo_params = \
 			{
 				'n' 	: num_features,
-				'alpha' : create_parameter('Constant', alpha0/expected_active),
 				'gamma' : create_parameter('Constant', 1),
 				'lmbda' : create_parameter('Constant', lm),
+				'epsilon' : 1e-6
 			}
 
-			A = algos.TD(**algo_params)
+			emph_lstd_algo_params = \
+			{
+				'n' 	: num_features,
+				'gamma' : create_parameter('Constant', 1),
+				'lmbda' : create_parameter('Constant', lm),
+				'I'		: create_parameter('Heaviside', 1, 1),
+				'epsilon' : 1e-6
+			}
 
-			# Store weights during run
-			mse_lst   = []
-			theta_lst = []
-			theta_lst.append(A.theta)
+			# Instantiate algorithms
+			emph_lstd  = algos.EmphaticLSTD(**emph_lstd_algo_params)
+			plain_lstd = algos.LSTD(**plain_lstd_algo_params)
 
+			# Store weights during run for each algorithm
+			plain_mse_lst   = []
+			plain_theta_lst = []
+			plain_theta_lst.append(plain_lstd.theta)
+
+			emph_mse_lst   = []
+			emph_theta_lst = []
+			emph_theta_lst.append(emph_lstd.theta)
 			for i, x in enumerate(step_lst[:-1]):
 				# Unpack the run data
 				obs, fvec, act, reward 	= x
 				fvec 					= np.array(fvec)
 				fvec_p 					= np.array(step_lst[i+1][1])
 
-				# Perform an update of the algorithm
-				delta = A.update(fvec, act, reward, fvec_p)
-				theta = A.theta.copy()
+				# Perform an update of the algorithms
+				plain_delta = plain_lstd.update(fvec, act, reward, fvec_p)
+				plain_theta = plain_lstd.theta.copy()
 
+				emph_delta = emph_lstd.update(fvec, act, reward, fvec_p)
+				emph_theta = emph_lstd.theta.copy()
 				# Append theta if at the end of an episode
 				if step_lst[i+1][0] == -1:
-					theta_lst.append(theta)
-					approx_err = [true_values[k] - np.dot(theta, v) for k, v in obs_map.items()]
-					mse 	   = np.mean(np.array(approx_err)**2) 	
-					mse_lst.append(mse)
+					plain_theta_lst.append(plain_theta)
+					approx_err = [true_values[k] - np.dot(plain_theta, v) for k, v in obs_map.items()]
+					plain_mse 	   = np.mean(np.array(approx_err)**2) 	
+					plain_mse_lst.append(plain_mse)
 
-			print("MSE:", np.mean(mse_lst))
-			lm_dct[lm].append(mse_lst)
+					emph_theta_lst.append(emph_theta)
+					approx_err = [true_values[k] - np.dot(emph_theta, v) for k, v in obs_map.items()]
+					emph_mse 	   = np.mean(np.array(approx_err)**2) 	
+					emph_mse_lst.append(emph_mse)
+
+
+			print("MSE:", np.mean(plain_mse_lst), np.mean(emph_mse_lst))
+			plain_lm_dct[lm].append(plain_mse_lst)
+			emph_lm_dct[lm].append(emph_mse_lst)
+
+	# Plot MSE vs lambda for each algorithm
+	xdata 			= sorted([x for x in lm_values])
+	plain_ydata 	= []
+	emph_ydata		= []
 
 	# Average the errors at the end of each episode for each value of lambda
 	err_max = 0
-	for k, v in lm_dct.items():
-		assert(all([len(x) == len(v[0]) for x in v])) # ensure equal length
-		xdata = np.arange(len(v[0]))
-		lm_err_vals = np.array(v)
-		ydata = np.mean(lm_err_vals, axis=0)
-		err_max  = max(np.max(ydata), err_max)
-		print("Largest error for lambda=", k, ":", np.max(ydata))
-		plt.plot(xdata, ydata, label="lambda={}".format(k))
+	for lm in xdata:
+		plain_err = np.mean(plain_lm_dct[lm])
+		emph_err  = np.mean(emph_lm_dct[lm])
+
+		plain_ydata.append(plain_err)
+		emph_ydata.append(emph_err)
+	
+	plt.plot(xdata, emph_ydata, label="ELSTD")
+	plt.plot(xdata, plain_ydata, label="LSTD")
 
 	print("Largest error value seen:", err_max)
-	plt.xlabel("Episode")
+	plt.xlabel("Lambda")
 	plt.ylabel("MSE")
-	plt.ylim([0, min(1, err_max)])
+	plt.ylim([0, min(2, err_max)])
 	plt.legend()
 
-	dir_name  = os.path.basename(data_dir.strip('/')) 
-	save_name = "td_vary_lambda" + dir_name + '.png'
-	save_path = os.path.join(graph_dir, save_name)
-	plt.savefig(save_path)
+	plt.show()
 
-
-
-
+	# dir_name  = os.path.basename(data_dir.strip('/')) 
+	# save_name = "elstd_vary_lambda" + dir_name + '.png'
+	# save_path = os.path.join(graph_dir, save_name)
+	# plt.savefig(save_path)
